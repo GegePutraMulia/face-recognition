@@ -1,23 +1,32 @@
 import face_recognition
 import requests
-import numpy as np
 from io import BytesIO
-from PIL import Image
 
-def load_image_from_url(url):
+def load_image_from_url(url: str):
     response = requests.get(url)
-    image = Image.open(BytesIO(response.content))
-    return np.array(image)
+    response.raise_for_status()
+    return face_recognition.load_image_file(BytesIO(response.content))
 
-def compare_faces(known_url, unknown_url):
-    known_image = load_image_from_url(known_url)
-    unknown_image = load_image_from_url(unknown_url)
+def load_image_from_bytes(image_bytes: bytes):
+    return face_recognition.load_image_file(BytesIO(image_bytes))
 
-    known_encoding = face_recognition.face_encodings(known_image)
-    unknown_encoding = face_recognition.face_encodings(unknown_image)
+def compare_faces_from_urls(reference_url: str, unknown_image_bytes: bytes, tolerance=0.6):
+    # Load reference image from URL (Supabase Storage)
+    try:
+        ref_image = load_image_from_url(reference_url)
+    except Exception as e:
+        print(f"Error loading reference image: {e}")
+        return None
 
-    if not known_encoding or not unknown_encoding:
-        return False
+    unknown_image = load_image_from_bytes(unknown_image_bytes)
 
-    result = face_recognition.compare_faces([known_encoding[0]], unknown_encoding[0])
-    return result[0]
+    # Encode faces
+    ref_encodings = face_recognition.face_encodings(ref_image)
+    unknown_encodings = face_recognition.face_encodings(unknown_image)
+
+    if not ref_encodings or not unknown_encodings:
+        return None  # Wajah tidak terdeteksi
+
+    # Bandingkan encoding pertama (asumsi 1 wajah di tiap gambar)
+    results = face_recognition.compare_faces([ref_encodings[0]], unknown_encodings[0], tolerance=tolerance)
+    return results[0]

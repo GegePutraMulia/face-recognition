@@ -4,3 +4,8 @@ requests
 face_recognition
 firebase-admin
 python-multipart
+python-dotenv
+pillow
+requests
+numpy
+opencv-python

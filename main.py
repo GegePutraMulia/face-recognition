@@ -1,57 +1,66 @@
-from fastapi import FastAPI, UploadFile, File, Form
-from pydantic import BaseModel
-import face_recognition
-import requests
-from io import BytesIO
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-import firebase_admin
 from firebase_admin import credentials, firestore
+import firebase_admin
+import os
+from dotenv import load_dotenv
+import base64
+import json
+import requests
+from utils import compare_faces_from_urls
 
-# Inisialisasi Firebase
-cred = credentials.Certificate("firebase-service-account.json")  # file key Firebase kamu
+load_dotenv()
+
+# Load dan inisialisasi Firebase Admin SDK
+firebase_credentials_base64 = os.getenv("FIREBASE_CREDENTIALS_BASE64")
+if not firebase_credentials_base64:
+    raise RuntimeError("FIREBASE_CREDENTIALS_BASE64 tidak ditemukan di .env")
+
+firebase_credentials_json = base64.b64decode(firebase_credentials_base64).decode("utf-8")
+firebase_cred_dict = json.loads(firebase_credentials_json)
+
+cred = credentials.Certificate(firebase_cred_dict)
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-# Supabase URL dan token dari .env atau variabel Railway
-SUPABASE_BUCKET_URL = "https://juigrfuhshdlsbphvvqx.supabase.co/storage/v1/object/public/foto-anggota/anggota/"
+# URL Supabase Storage (harus ending dengan slash '/')
+SUPABASE_BUCKET_URL = os.getenv("SUPABASE_BUCKET_URL")
+if not SUPABASE_BUCKET_URL:
+    raise RuntimeError("SUPABASE_BUCKET_URL tidak ditemukan di .env")
+
 app = FastAPI()
 
-# Allow CORS (untuk Flutter / Web)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Bisa diubah sesuai kebutuhan
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 @app.post("/compare")
-async def compare_face(
-    image: UploadFile = File(...),
-    user_id: str = Form(...)
-):
-    # Ambil URL foto referensi dari Supabase
-    foto_url = f"{SUPABASE_BUCKET_URL}{user_id}.jpg"
-    response = requests.get(foto_url)
-    if response.status_code != 200:
-        return {"status": "error", "message": "Foto referensi tidak ditemukan"}
-
-    known_image = face_recognition.load_image_file(BytesIO(response.content))
-    unknown_image = face_recognition.load_image_file(await image.read())
-
+async def compare_face(image: UploadFile = File(...), user_id: str = Form(...)):
     try:
-        known_encoding = face_recognition.face_encodings(known_image)[0]
-        unknown_encoding = face_recognition.face_encodings(unknown_image)[0]
-    except IndexError:
-        return {"status": "error", "message": "Wajah tidak terdeteksi"}
+        foto_url = f"{SUPABASE_BUCKET_URL}{user_id}.jpg"
+        unknown_image_bytes = await image.read()
 
-    result = face_recognition.compare_faces([known_encoding], unknown_encoding)[0]
-    if result:
-        # Simpan ke Firestore
-        db.collection("absensi").add({
-            "user_id": user_id,
-            "status": "valid",
-            "timestamp": firestore.SERVER_TIMESTAMP,
-        })
-        return {"status": "success", "message": "Wajah cocok"}
-    else:
-        return {"status": "error", "message": "Wajah tidak cocok"}
+        result = compare_faces_from_urls(foto_url, unknown_image_bytes)
+
+        if result is None:
+            raise HTTPException(status_code=400, detail="Wajah tidak terdeteksi")
+
+        if result:
+            # Simpan absensi ke Firestore
+            db.collection("users").add({
+                "user_id": user_id,
+                "status": "valid",
+                "timestamp": firestore.SERVER_TIMESTAMP,
+            })
+            return {"status": "success", "message": "Wajah cocok"}
+        else:
+            return {"status": "error", "message": "Wajah tidak cocok"}
+
+    except requests.RequestException:
+        raise HTTPException(status_code=503, detail="Gagal mengakses foto referensi")
+    except Exception as e:
+        print(f"Error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
