@@ -9,3 +9,4 @@ pillow
 requests
 numpy
 opencv-python
+uvicorn[standard]
