@@ -1,20 +1,31 @@
+# Gunakan image Python resmi
 FROM python:3.11-slim
 
+# Tentukan direktori kerja
 WORKDIR /app
 
-COPY requirements.txt .
-
-# Install dependencies sistem untuk face_recognition dan opencv
+# Install dependencies sistem
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
-    libglib2.0-0 \
-    libgl1-mesa-glx \
-    && pip install --no-cache-dir -r requirements.txt \
+    libopenblas-dev \
+    liblapack-dev \
+    libx11-dev \
+    libgtk-3-dev \
+    libboost-python-dev \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Salin requirements terlebih dahulu
+COPY requirements.txt .
+
+# Install dependensi Python
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Salin semua source code
 COPY . .
 
+# Buka port
 EXPOSE 8000
 
+# Jalankan FastAPI via Uvicorn
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
