@@ -7,8 +7,14 @@ WORKDIR /app
 # Salin requirements terlebih dahulu (agar layer caching optimal)
 COPY requirements.txt .
 
-# Install dependencies langsung tanpa virtualenv
-RUN pip install --no-cache-dir -r requirements.txt
+# Install dependencies sistem untuk face_recognition dan opencv
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    libglib2.0-0 \
+    libgl1-mesa-glx \
+    && pip install --no-cache-dir -r requirements.txt \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Salin semua source code
 COPY . .
