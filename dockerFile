@@ -2,7 +2,6 @@ FROM python:3.10-bullseye
 
 WORKDIR /app
 
-# Install dependencies OS yang diperlukan untuk build dlib dan face_recognition
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
@@ -16,22 +15,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip, setuptools, wheel
 RUN pip install --upgrade pip setuptools wheel
 
-# Copy requirements.txt dan install dependencies Python
 COPY requirements.txt .
-
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy seluruh source code aplikasi
 COPY . .
 
-# Expose port default (Railway akan override ini)
 EXPOSE 8000
-
-# Gunakan environment variable PORT dari Railway, default ke 8000 jika tidak ada
 ENV PORT=8000
 
-# Jalankan uvicorn pakai port dinamis Railway
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port $PORT"]
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
