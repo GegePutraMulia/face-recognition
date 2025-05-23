@@ -1,9 +1,8 @@
 FROM python:3.11-slim
 
-# Set working directory
 WORKDIR /app
 
-# Install dependencies sistem yang diperlukan untuk build dlib dan face_recognition
+# Install dependencies OS yang dibutuhkan dlib dan face_recognition
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
@@ -16,17 +15,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements.txt dulu untuk caching layer pip install
+# Salin requirements.txt dulu untuk cache pip install
 COPY requirements.txt .
 
-# Install dependencies Python langsung via pip tanpa virtualenv
-RUN pip install --no-cache-dir -r requirements.txt
+# Upgrade pip sebelum install dependencies, dan install paket dari requirements.txt
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# Salin semua source code aplikasi
+# Salin seluruh source code setelah install dependencies agar cache layer lebih efisien
 COPY . .
 
-# Expose port aplikasi
 EXPOSE 8000
 
-# Jalankan FastAPI dengan uvicorn
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
