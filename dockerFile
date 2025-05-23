@@ -1,0 +1,20 @@
+# Gunakan base image resmi Python
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Salin requirements terlebih dahulu (agar layer caching optimal)
+COPY requirements.txt .
+
+# Install dependencies langsung tanpa virtualenv
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Salin semua source code
+COPY . .
+
+# Ekspose port yang digunakan aplikasi
+EXPOSE 8000
+
+# Jalankan FastAPI menggunakan Uvicorn
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
