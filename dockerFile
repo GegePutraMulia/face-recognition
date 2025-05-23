@@ -1,8 +1,10 @@
+# Pakai base image python slim yang sudah stabil
 FROM python:3.11-slim
 
+# Set working directory
 WORKDIR /app
 
-# Install OS dependencies yang dibutuhkan untuk build dlib & dependencies lain
+# Install dependencies OS yang dibutuhkan untuk build dlib dan face_recognition
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
@@ -14,17 +16,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Salin requirements.txt dulu untuk cache layer yang baik
+# Salin requirements.txt dulu supaya layer cache optimal
 COPY requirements.txt .
 
-# Install dependencies Python
+# Install dependencies Python dari requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Salin semua source code aplikasi
+# Salin semua source code ke container
 COPY . .
 
-# Ekspos port uvicorn standar
+# Ekspos port aplikasi
 EXPOSE 8000
 
-# Jalankan aplikasi FastAPI dengan uvicorn
+# Jalankan aplikasi dengan uvicorn
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
